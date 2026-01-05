@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: automateiq-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: automateiq
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    container_name: automateiq-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Backend API Gateway
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: automateiq-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/automateiq?authSource=admin
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AI_ENGINE_URL: http://ai-engine:8000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Python AI Engine
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: automateiq-ai-engine
+    restart: unless-stopped
+    environment:
+      REDIS_URL: redis://redis:6379
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/automateiq?authSource=admin
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./ai-engine:/app
+      - ./uploads:/app/uploads
+
+  # Celery Worker for Background Jobs
+  celery-worker:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: automateiq-celery-worker
+    restart: unless-stopped
+    command: celery -A app.celery worker --loglevel=info
+    environment:
+      REDIS_URL: redis://redis:6379
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/automateiq?authSource=admin
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - redis
+      - mongodb
+    volumes:
+      - ./ai-engine:/app
+      - ./uploads:/app/uploads
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: automateiq-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
+  redis_data:
