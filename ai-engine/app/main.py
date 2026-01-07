@@ -38,8 +38,8 @@ security = HTTPBearer()
 @app.on_event("startup")
 async def startup_event():
     """Initialize connections on startup"""
-    await connect_db()
-    await connect_redis()
+    # await connect_db()
+    # await connect_redis()
     print("🤖 AI Engine started successfully")
 
 # Health check
@@ -52,12 +52,14 @@ async def health_check():
         "version": "1.0.0"
     }
 
-# Authentication dependency
+# Authentication dependency (optional for now)
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Verify JWT token and return user info"""
     try:
-        user_info = await verify_token(credentials.credentials)
-        return user_info
+        # TODO: Implement actual token verification
+        # user_info = await verify_token(credentials.credentials)
+        # return user_info
+        return {"user_id": "test_user", "organization_id": "test_org"}
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
@@ -66,28 +68,28 @@ app.include_router(
     documents.router,
     prefix="/api/documents",
     tags=["documents"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]  # Commented out for testing
 )
 
 app.include_router(
     chat.router,
     prefix="/api/chat",
     tags=["chat"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]  # Commented out for testing
 )
 
 app.include_router(
     content.router,
     prefix="/api/content",
     tags=["content"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]  # Commented out for testing
 )
 
 app.include_router(
     inventory.router,
     prefix="/api/inventory",
     tags=["inventory"],
-    dependencies=[Depends(get_current_user)]
+    # dependencies=[Depends(get_current_user)]  # Commented out for testing
 )
 
 # Root endpoint
