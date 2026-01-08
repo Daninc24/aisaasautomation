@@ -21,7 +21,14 @@ class OCRResult:
 class OCRService:
     def __init__(self):
         """Initialize OCR service with both Tesseract and EasyOCR"""
-        self.easyocr_reader = easyocr.Reader(['en'])
+        try:
+            # Force CPU-only mode for EasyOCR to avoid CUDA issues
+            import os
+            os.environ['CUDA_VISIBLE_DEVICES'] = ''
+            self.easyocr_reader = easyocr.Reader(['en'], gpu=False)
+        except Exception as e:
+            logger.warning(f"EasyOCR initialization failed: {e}. OCR will use Tesseract only.")
+            self.easyocr_reader = None
         
     async def process_document(self, image_data: bytes, document_type: str = "general") -> OCRResult:
         """
@@ -148,6 +155,10 @@ class OCRService:
     def _easyocr_ocr(self, image: np.ndarray) -> Tuple[str, float, List[Dict]]:
         """Perform OCR using EasyOCR"""
         try:
+            if self.easyocr_reader is None:
+                logger.warning("EasyOCR not available, skipping")
+                return "", 0, []
+                
             results = self.easyocr_reader.readtext(image)
             
             text_parts = []
@@ -185,6 +196,14 @@ class OCRService:
         """Combine results from both OCR engines"""
         tesseract_text, tesseract_conf, tesseract_boxes = tesseract_result
         easyocr_text, easyocr_conf, easyocr_boxes = easyocr_result
+        
+        # If EasyOCR failed, use Tesseract only
+        if not easyocr_text and tesseract_text:
+            return tesseract_text, tesseract_conf, tesseract_boxes
+        
+        # If Tesseract failed, use EasyOCR only
+        if not tesseract_text and easyocr_text:
+            return easyocr_text, easyocr_conf, easyocr_boxes
         
         # Choose the result with higher confidence
         if tesseract_conf > easyocr_conf:

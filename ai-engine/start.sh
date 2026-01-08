@@ -23,7 +23,9 @@ fi
 
 # Set environment variables if .env exists
 if [ -f "../.env" ]; then
-    export $(grep -v '^#' ../.env | xargs)
+    set -a  # automatically export all variables
+    source ../.env
+    set +a  # stop automatically exporting
 fi
 
 # Start the AI engine
