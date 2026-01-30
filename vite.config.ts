@@ -12,6 +12,18 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    watch: {
+      // Exclude directories that shouldn't be watched
+      ignored: [
+        '**/node_modules/**',
+        '**/ai-engine/**',
+        '**/backend/**',
+        '**/uploads/**',
+        '**/.git/**',
+        '**/dist/**',
+        '**/build/**'
+      ]
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

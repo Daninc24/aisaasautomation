@@ -272,6 +272,17 @@ pip install -r requirements.txt
 ./setup.sh
 ```
 
+#### File Watcher Issues (Ubuntu/Debian)
+If you get "ENOSPC: System limit for number of file watchers reached" error:
+```bash
+# Quick fix
+./fix-file-watchers.sh
+
+# Or manually increase the limit
+echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
 #### Docker Issues
 ```bash
 # Check Docker status
